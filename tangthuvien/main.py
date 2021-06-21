@@ -1,25 +1,21 @@
 from flask import request
 from bs4 import BeautifulSoup
-# import grequests
 import requests
 import json
 import asyncio
 import aiohttp
 import flask
-# import time
 
 app = flask.Flask(__name__)
-app.config["DEBUG"] = True
 
 @app.route('/', methods=['GET'])
 def home():
-    return '''<h1>Distant Reading Archive</h1>
-<p>A prototype API for distant reading of science fiction novels.</p>'''
+    return '''<h1>tangthuvien API home page</p>'''
 
 @app.route('/api/chapters', methods=['GET'])
 @app.route('/api/books/contents', methods=['GET'])
 def api_books_contents():
-    
+    try:
         url = request.args['url']
         html = requests.get(url)    
         soup = BeautifulSoup(html.content,'html.parser')
@@ -49,19 +45,21 @@ def api_books_contents():
                 chapter_idx = idx + 1
 
                 if chapter_idx > 0:
-                    info['prev_chap'] = chapters[idx-1].find('a')['href']
+                    try:
+                        info['prev_chap'] = chapters[idx-1].find('a')['href']
+                    except:
+                        pass
 
                 if chapter_idx < len(chapters):
-                    info['next_chap'] = chapters[idx+1].find('a')['href']
-                
+                    try:
+                       info['next_chap'] = chapters[idx+1].find('a')['href']
+                    except:
+                        pass
                 break
 
         rows = soup.find_all('div')
-
         # Loop through the data and match results that fit the requested url.        
-        for index in range(len(rows)):
-            if index < 40:
-                continue
+        for index in range(40, len(rows)):
             row = rows[index]
             if "box-chap box-chap" in str(row):
                 info['content'] = row.get_text()
@@ -69,6 +67,8 @@ def api_books_contents():
 
         return json.dumps(info)
 
+    except Exception as e:
+        return "Unable to get url {} due to {}.".format(url, e.__class__)  
 
 @app.route('/api/books', methods=['GET'])
 def api_books():
@@ -144,59 +144,68 @@ async def get(semaphore, url, session, timeout=10):
         print("Unable to get url {} due to {}.".format(url, e.__class__))
 
 async def get_chapters(urls):
-    sem = asyncio.Semaphore(1)
-    # timeout = 3.5
-    # with async_timeout.timeout(timeout):
-    async with aiohttp.ClientSession() as session:
-        ret = await asyncio.gather(*[get(sem, url, session) for url in urls])
-    return ret         
+    try:
+        sem = asyncio.Semaphore(1)
+        # timeout = 3.5
+        # with async_timeout.timeout(timeout):
+        async with aiohttp.ClientSession() as session:
+            ret = await asyncio.gather(*[get(sem, url, session) for url in urls])
+        return ret         
+    except Exception as e:
+        print("Unable to get chapters due to {}.".format(e.__class__))
 
 def async_books_contents(soup, idx):    
-    # Create an empty dictionary for our results
-    info = {}
-    info['source'] = 'truyen.tangthuvien.vn'
-    # Find chapter title and book title container
-    info['book_title'] = soup.find('h1', attrs={"class":"truyen-title"}).find('a')['title']   
-    info['chapter_title'] = soup.find('h2').get_text()
-
-    rows = soup.find_all('div')
-
-    # Loop through the data and match results that fit the requested url.        
-    for index in range(len(rows)):
-        if index < 40:
-            continue
-        row = rows[index]
-        if "box-chap box-chap" in str(row):
-            chap_id = row['class'][1][9:]
-            info['content'] = row.get_text()
-            break
-    story_id = soup.find('input', attrs = {'name':'story_id'})['value']
-    
-    info['next_4_url'] = 'https://truyen.tangthuvien.vn/get-4-chap?story_id=' + str(story_id) + '&chap_id=' + str(chap_id) + '&sort_by_ttv=' + str(idx)
-
-    return info
-
-def get_4_next(soup, title):
-    # Create an empty dictionary for our results
-    result = []
-
-    chap_titles = soup.find_all('h5')
-    chap_contents = soup.find_all('div', attrs = {'class':'box-chap'})
-
-    for chap_idx in range(len(chap_titles)):
+    try:
+        # Create an empty dictionary for our results
         info = {}
         info['source'] = 'truyen.tangthuvien.vn'
         # Find chapter title and book title container
-        info['book_title'] = title  
-        info['chapter_title'] = chap_titles[chap_idx].get_text()
-        info['content'] = chap_contents[chap_idx].get_text()        
-        result.append(info) 
+        info['book_title'] = soup.find('h1', attrs={"class":"truyen-title"}).find('a')['title']   
+        info['chapter_title'] = soup.find('h2').get_text()
 
-    return result
+        rows = soup.find_all('div')
 
+        # Loop through the data and match results that fit the requested url.        
+        for index in range(len(rows)):
+            if index < 40:
+                continue
+            row = rows[index]
+            if "box-chap box-chap" in str(row):
+                chap_id = row['class'][1][9:]
+                info['content'] = row.get_text()
+                break
+        story_id = soup.find('input', attrs = {'name':'story_id'})['value']
+        
+        info['next_4_url'] = 'https://truyen.tangthuvien.vn/get-4-chap?story_id=' + str(story_id) + '&chap_id=' + str(chap_id) + '&sort_by_ttv=' + str(idx)
+
+        return info
+    except Exception as e:
+        print("Unable to get book contents async due to {}.".format(e.__class__))
+
+def get_4_next(soup, title):
+    try:
+        # Create an empty dictionary for our results
+        result = []
+
+        chap_titles = soup.find_all('h5')
+        chap_contents = soup.find_all('div', attrs = {'class':'box-chap'})
+
+        for chap_idx in range(len(chap_titles)):
+            info = {}
+            info['source'] = 'truyen.tangthuvien.vn'
+            # Find chapter title and book title container
+            info['book_title'] = title  
+            info['chapter_title'] = chap_titles[chap_idx].get_text()
+            info['content'] = chap_contents[chap_idx].get_text()        
+            result.append(info) 
+
+        return result
+    except Exception as e:
+        pass
 
 @app.route('/api/async/books', methods=['GET'])
 def async_api_books():
+    try:
         url = request.args['url']
         html = requests.get(url)
         soup = BeautifulSoup(html.content,'html.parser')
@@ -229,8 +238,6 @@ def async_api_books():
         info['season_name'].append(soup.find('li', attrs ={"class":"divider-chap"}).get_text())
         info['season_index'].append(0)
 
-        # start0 = time.time()
-
         # Find chapters and seasons container
         hidden_url = "https://truyen.tangthuvien.vn/doc-truyen/page/" + book_id + "?page=0&limit=18446744073709551615&web=1"
         hidden_html = requests.get(hidden_url)
@@ -250,41 +257,8 @@ def async_api_books():
                 info['season_index'].append(len(info['chapter_name']))
 
         info['season_index'].append(len(info['chapter_name']))   
-
         info['chapter_contents'] = [None] * len(info['chapter_link'])
 
-        # htmls = []
-        # start = time.time()
-        # for i in range(0, len(info['chapter_link']), 5):
-        #     rs = (grequests.get(link) for link in info['chapter_link'][i:i+5])
-        #     htmls.extend(grequests.map(rs, exception_handler=exception_handler))
-        #     time.sleep(0.5)
-        # end = time.time()
-        # print(end-start)
-        # print(htmls)
-        # for idx, html in enumerate(htmls):
-        #     info['chapter_contents'][idx] = async_books_contents(BeautifulSoup(html.content, 'html.parser'))
-
-        # rs = (grequests.get(link) for link in info['chapter_link'])
-        # htmls.extend(grequests.map(rs, exception_handler = exception_handler))
-
-        # while True:
-        #     request_again = [[], []]
-        #     for idx, html in enumerate(htmls):
-        #         if html.status_code == 503:
-        #             request_again[0].append(info['chapter_link'][idx])
-        #             request_again[1].append(idx)
-                    
-        #     if len(request_again[0]) == 0:
-        #         break    
-
-        #     rs = (grequests.get(link) for link in request_again[0])
-        #     htmls_again = grequests.map(rs, exception_handler = exception_handler)
-        #     for idx_again, html_again in enumerate(htmls_again):
-        #         htmls[request_again[1][idx_again]] = html_again
-
-        # start = time.time()
-        # print(start - start0)
         chapters_first_of_5 = []
         chapters_get_4 = []
         index = 0
@@ -296,20 +270,13 @@ def async_api_books():
         asyncio.set_event_loop(loop)
         first_of_5_soups = loop.run_until_complete(get_chapters(chapters_first_of_5))
 
-        # end = time.time()
-        # print(end-start)
-
         for idx, soup in enumerate(first_of_5_soups):
             chapter = async_books_contents(soup, idx*5 + 1)
             chapters_get_4.append(chapter['next_4_url'])
             chapter.pop('next_4_url', None)
             info['chapter_contents'][idx*5] = chapter
-        # end2 = time.time()
-        # print(end2-end)
 
         get_4_soups = loop.run_until_complete(get_chapters(chapters_get_4))
-        # end3 = time.time()
-        # print(end3-end2)
         
         for idx, soup in enumerate(get_4_soups):
             chapters = get_4_next(soup, info['chapter_contents'][idx*5]['chapter_title'])
@@ -318,5 +285,5 @@ def async_api_books():
 
         return json.dumps(info)
 
-
-
+    except Exception as e:
+        print("Unable to get url {} due to {}.".format(url, e.__class__))

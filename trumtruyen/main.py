@@ -7,12 +7,10 @@ import flask
 from flask import request
 
 app = flask.Flask(__name__)
-app.config["DEBUG"] = True
 
 @app.route('/', methods=['GET'])
 def home():
-    return '''<h1>Distant Reading Archive</h1>
-<p>A prototype API for distant reading of science fiction novels.</p>'''
+    return '''<h1>trumtruyen API home page</p>'''
 
 @app.route('/api/chapters', methods=['GET'])
 @app.route('/api/books/contents', methods=['GET'])
@@ -27,7 +25,6 @@ def api_books_contents():
         info['source'] = 'trumtruyen.net'
         
         # Find chapter title and book title container
-
         info['book_title'] = soup.find('a', attrs={"class":"truyen-title"}).get_text()
         info['chapter_title'] = soup.find('a', attrs={"class":"chapter-title"}).get_text()
         info['prev_chap'] = soup.find('a', attrs={'id':'prev_chap'})['href']
@@ -52,12 +49,6 @@ def api_books_contents():
     except Exception as e:
         return "Unable to get url {} due to {}.".format(url, e.__class__)       
 
-def async_books_contents(soup):
-    # Create an empty dictionary for our results
-    info = {}
-
-    return json.dumps(info)
-    
 @app.route('/api/books', methods=['GET'])
 def api_books():
     try:
@@ -102,7 +93,7 @@ def api_books():
         info['chapter_link'] = []
         info['season_name'] = []
         info['season_index'] = []
-
+        info['has_seasons'] = False       
         page_link = []
         for page_idx in range(1, total_page + 1):
             page_link.append('https://trumtruyen.net/ajax.php?type=list_chapter&tid=' + str(book_id) + '&tascii=' + str(book_name) + '&page=' + str(page_idx) + '&totalp=50')
@@ -115,6 +106,10 @@ def api_books():
             for i in s.find_all('a'):
                 info['chapter_link'].append(i['href'])
                 info['chapter_name'].append(i['title'])
+
+        if len(info['season_name']) == 0:
+            info['season_name'].append('Quyển 1')
+            info['season_index'].append(0)
 
         return json.dumps(info)
     except Exception as e:
@@ -142,10 +137,4 @@ async def get_chapters(urls):
 
 @app.route('/api/async/books', methods=['GET'])
 def async_api_books():
-    try:
-        url = request.args['url']        
-        html = requests.get(url)    
-        soup = BeautifulSoup(html.content,'html.parser')
-        
-    except Exception as e:
-        return "Unable to get url {} due to {}.".format(url, e.__class__)   
+    pass
